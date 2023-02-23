@@ -3,6 +3,7 @@ import { observer } from 'mobx-react';
 import { styled } from 'nativewind';
 import React, { useState } from 'react';
 import { Text, View } from 'react-native';
+import { useAuth0 } from 'react-native-auth0';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AnimatedBackground } from '../components/AnimatedBackground';
 import { Button } from '../components/Button';
@@ -37,6 +38,7 @@ const QuizScreen = () => {
     getNewQuestion(quizStore.answeredQuestions),
   );
   const [state, setState] = useState<AnswerState>('waiting');
+  const { user, getCredentials } = useAuth0();
 
   const answer = (no: number) => {
     const correct = no === question.correct;
@@ -50,6 +52,28 @@ const QuizScreen = () => {
   const nextQuestion = () => {
     setQuestion(getNewQuestion(quizStore.answeredQuestions));
     setState('waiting');
+  };
+
+  const handleStaring = async () => {
+    const { accessToken } = await getCredentials();
+    //Does not work
+    if (accessToken)
+      fetch(`https://api.github.com/user/starred/${question.repo.full_name}`, {
+        method: 'PUT',
+        headers: {
+          Accept: 'application/vnd.github+json',
+          Authorization: `Bearer ${accessToken}`,
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      })
+        .then((response) => {
+          // handle the response
+          console.log(response.json());
+        })
+        .catch((error) => {
+          // handle the error
+          console.log(error, '----------ERROR------');
+        });
   };
 
   return (
@@ -77,6 +101,14 @@ const QuizScreen = () => {
           )}
           {state === 'waiting' && (
             <>
+              {user && (
+                <Button
+                  label="Bookmark"
+                  onPress={() => {
+                    handleStaring();
+                  }}
+                />
+              )}
               <View className="flex-row items-end flex-2">
                 <Text className="flex-1 text-xl">{question.question}</Text>
               </View>
@@ -98,6 +130,11 @@ const QuizScreen = () => {
             Your Score {quizStore.score} (
             {((quizStore.score / questions.length) * 100).toFixed(2)}%)
           </Text>
+          {!user && (
+            <Text className="text-1x1">
+              You can bookmark a repo if you are logged in
+            </Text>
+          )}
         </View>
       </SafeAreaView>
     </>
